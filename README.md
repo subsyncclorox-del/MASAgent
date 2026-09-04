@@ -86,6 +86,8 @@ export PATH="$PWD/bin:$PATH"
 masagent run --scope scope.yaml --target https://example.com --start-guard --out ./out
 ```
 
+By default this runs **site-wide**: it discovers in-scope subdomains (DNS-based, passive) under your scope's `allow_domains` and tests every one. Pass `--no-subdomains` to test only the given host.
+
 Outputs land in `./out/`:
 
 - `surface-map.json` — the mapped attack surface

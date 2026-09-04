@@ -31,6 +31,7 @@ class Engagement:
     scope_path: str
     scope_sha: str = ""
     name: str = ""
+    allow_domains: list[str] = field(default_factory=list)
     started_at: float = field(default_factory=time.time)
 
     @staticmethod
@@ -46,6 +47,7 @@ class Engagement:
             scope_path=scope_path,
             scope_sha=scope_digest(scope_path),
             name=doc.get("name", ""),
+            allow_domains=list(doc.get("allow_domains") or []),
         )
 
 

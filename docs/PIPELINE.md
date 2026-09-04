@@ -6,8 +6,7 @@ the scope guard.
 1. **Context ingestion** — target URL plus optional docs, credentials, API specs
    (OpenAPI/GraphQL), and architecture notes from `--context`. More context =
    deeper testing.
-2. **Spider (Go)** — crawl the in-scope surface: routes, forms, params,
-   endpoints, JS bundles.
+2. **Discovery + Spider (Go/Python)** — enumerate in-scope subdomains (passive DNS brute-force under the scope's apex domains, each scope-checked), then crawl every in-scope host: routes, forms, params, endpoints, JS bundles. `--no-subdomains` limits the run to a single host.
 3. **Recon (Go)** — fingerprint stack/tech/headers, probe for exposed files,
    build the live attack-surface map.
 4. **Planner (Python)** — read the map and produce a prioritized test plan
