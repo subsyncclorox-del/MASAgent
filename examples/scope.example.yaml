@@ -1,0 +1,37 @@
+# MASAgent engagement scope.
+#
+# This file is the authorization boundary. MASAgent refuses to run without one,
+# and every network action is checked against it. There is no test-everything
+# mode. Only add targets you are AUTHORIZED to test (a bug-bounty program's
+# published scope, systems you own, or a signed engagement).
+
+engagement_id: ENG-2026-0001      # required; unique per engagement
+name: Example Corp bug bounty     # human label
+
+# In-scope hosts. A bare domain also covers its subdomains; "*.x.com" covers
+# subdomains only (not the apex).
+allow_domains:
+  - example.com
+  - "*.api.example.com"
+
+# In-scope networks (CIDR or bare IP). Optional if allow_domains is set.
+allow_cidrs:
+  - 203.0.113.0/24
+
+# Ports MASAgent may touch. Omit for the safe default set [80, 443, 8080, 8443].
+allow_ports: [80, 443]
+
+# Exclusions. Deny always wins over allow — use this to carve out anything the
+# program marks out of scope even if it sits under an allowed domain/CIDR.
+deny_domains:
+  - admin.example.com
+  - status.example.com
+deny_cidrs:
+  - 203.0.113.5/32          # a shared host you must not touch
+
+# Conservative-by-default throttles so an authorized target can never be flooded.
+limits:
+  requests_per_second_per_host: 5
+  burst: 10
+  max_concurrent_per_host: 4
+  max_concurrent_total: 32

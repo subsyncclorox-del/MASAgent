@@ -1,0 +1,35 @@
+# MASAgent reference deployment.
+#
+# Every service that can reach the network does so ONLY through scopeguard. The
+# scope file is mounted read-only; there is no service that runs without it.
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [masa]
+
+  scopeguard:
+    build: ./scopeguard
+    command: ["-scope", "/scope/scope.yaml", "-proxy", "0.0.0.0:8899", "-control", "0.0.0.0:8898", "-audit", "/audit/audit.jsonl"]
+    volumes:
+      - ${MASAGENT_SCOPE_FILE:?set MASAGENT_SCOPE_FILE to your scope.yaml}:/scope/scope.yaml:ro
+      - ./.masagent-audit:/audit
+    ports:
+      - "127.0.0.1:8898:8898"   # control (localhost only)
+    networks: [masa]
+
+  api:
+    build: ./api
+    environment:
+      SCOPEGUARD_CONTROL: http://scopeguard:8898
+      MASAGENT_TOKEN_SECRET: ${MASAGENT_TOKEN_SECRET:?set a token secret}
+      MASAGENT_ADMIN_KEY: ${MASAGENT_ADMIN_KEY:?set an admin key}
+      PORT: "8787"
+    depends_on: [scopeguard, redis]
+    ports:
+      - "127.0.0.1:8787:8787"
+    networks: [masa]
+
+networks:
+  masa:
+    driver: bridge

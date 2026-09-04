@@ -1,0 +1,46 @@
+name: ci
+on:
+  push:
+    paths: ["masagent/**"]
+  pull_request:
+    paths: ["masagent/**"]
+
+defaults:
+  run:
+    working-directory: masagent
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.24" }
+      - name: scopeguard
+        run: cd scopeguard && go test ./... && go vet ./...
+      - name: recon
+        run: cd recon && go test ./... && go vet ./...
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: install + test
+        run: |
+          cd orchestrator
+          pip install -e '.[dev]'
+          python -m pytest -q
+
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: typecheck
+        run: |
+          cd api
+          npm install --no-audit --no-fund
+          npx tsc -p tsconfig.json --noEmit
