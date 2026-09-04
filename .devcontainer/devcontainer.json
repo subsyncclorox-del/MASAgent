@@ -9,7 +9,7 @@
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "remoteEnv": {
-    "PATH": "${containerWorkspaceFolder}/bin:${containerEnv:PATH}"
+    "PATH": "${containerWorkspaceFolder}/bin:${containerEnv:HOME}/go/bin:${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
   },
   "customizations": {
     "vscode": {
