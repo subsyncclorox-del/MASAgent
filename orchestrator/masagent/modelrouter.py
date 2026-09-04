@@ -73,5 +73,28 @@ class ModelRouter:
         )
         return resp.choices[0].message.content or ""
 
+    def act(self, tier: str, messages: list[dict], tools: list[dict], max_tokens: int = 1024):
+        """One tool-calling step. Returns the assistant message (SDK object with
+        .content and .tool_calls); the caller appends msg.model_dump() to the
+        running message list and executes any tool calls. Accounts spend and
+        raises SpendCapExceeded at the cap, so an autonomous loop cannot run
+        away. Raises RuntimeError in deterministic-only mode (no model)."""
+        if not self.enabled:
+            raise RuntimeError("no model configured; autonomous mode needs a model key")
+        est_in = sum(len(str(m.get("content") or "")) for m in messages) // 4
+        self._account(tier, est_in, max_tokens)
+        base = self.self_hosted_base or self.base_url
+        model, *_ = TIER_MODELS.get(tier, TIER_MODELS["fast"])
+        try:
+            from openai import OpenAI
+        except ImportError as e:  # pragma: no cover
+            raise RuntimeError("openai client not installed; pip install masagent[llm]") from e
+        client = OpenAI(api_key=self.api_key or "sk-local", base_url=base)
+        resp = client.chat.completions.create(
+            model=model, messages=messages, tools=tools,
+            tool_choice="auto", max_tokens=max_tokens,
+        )
+        return resp.choices[0].message
+
     def summary(self) -> dict:
         return {"calls": self.calls, "spent_usd": round(self.spent_usd, 4), "cap_usd": self.spend_cap_usd}

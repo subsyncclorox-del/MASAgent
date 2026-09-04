@@ -22,9 +22,12 @@ the scope guard.
 7. **JS + IDOR/BOLA analysis** — parse client JS for endpoints; test object- and
    function-level access control across the roles supplied in context.
 8. **Coordinator + agent swarm (Python)** — a coordinator directs parallel
-   agents, each owning an endpoint or vuln class. Agents reason, test, and
-   iterate — all through the guard, the rate limiter, and the spend cap — and log
-   their reasoning.
+   agents, all through the guard, the rate limiter, and the spend cap, logging
+   their reasoning. Two kinds: deterministic agents (scripted probes for a
+   vuln class) and, when a model is configured, an **autonomous LLM agent**
+   per host that chooses its own actions — request, observe, hypothesize,
+   chain, report — via tool-calling. The guard makes off-scope requests
+   impossible even under model control, and the spend cap bounds each run.
 9. **Vulnerability chaining** — proven findings are composed into attack paths.
    A chain is only emitted when each constituent finding is already proven, so a
    chain never introduces an unproven claim.

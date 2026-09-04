@@ -89,11 +89,30 @@ def _deterministic_findings(surface: dict) -> list[Finding]:
     return out
 
 
+def _load_context(path: str | None) -> dict:
+    """Read a --context directory into {filename: text}. Docs, API specs and test
+    credentials here let the autonomous agent do deeper (and authenticated) testing."""
+    ctx: dict = {}
+    if not path:
+        return ctx
+    from pathlib import Path as _P
+    d = _P(path)
+    if not d.exists():
+        return ctx
+    for f in sorted(d.rglob("*")):
+        if f.is_file() and f.stat().st_size < 200_000:
+            try:
+                ctx[str(f.relative_to(d))] = f.read_text(errors="replace")
+            except Exception:  # noqa: BLE001
+                pass
+    return ctx
+
+
 def _host_url(host: str) -> str:
     return host if "//" in host else "https://" + host
 
 
-def _scan_host(cfg, target_url, scope, audit, router) -> tuple[list, list, dict]:
+def _scan_host(cfg, target_url, scope, audit, router, context=None) -> tuple[list, list, dict]:
     """Run recon -> plan -> coordinate for one host. Returns (confirmed,
     unconfirmed, surface). Recon failures raise; the caller decides to skip."""
     surface = _run_recon(cfg, target_url, None)
@@ -102,7 +121,7 @@ def _scan_host(cfg, target_url, scope, audit, router) -> tuple[list, list, dict]
     sandbox = _SB(cfg.sandbox_image, cfg.scopeguard_proxy, "run")
     validator = Validator(scope, sandbox, audit)
     coord = Coordinator(scope, audit, validator, router, cfg.max_agent_concurrency)
-    run = coord.run(plan)
+    run = coord.run(plan, surface=surface, context=context)
     run.confirmed += _deterministic_findings(surface)
     return run.confirmed, run.unconfirmed, surface
 
@@ -129,6 +148,11 @@ def cmd_run(args) -> int:
 
     router = ModelRouter(cfg.openrouter_key, cfg.openrouter_base, cfg.spend_cap_usd,
                          cfg.self_hosted_model_base)
+    context = _load_context(args.context)
+    if router.enabled:
+        print("masagent: autonomous mode ON (model configured)", file=sys.stderr)
+    else:
+        print("masagent: deterministic mode (no model key; set OPENROUTER_API_KEY for autonomous)", file=sys.stderr)
 
     from urllib.parse import urlparse
     seed = urlparse(args.target if "//" in args.target else "https://" + args.target)
@@ -145,7 +169,7 @@ def cmd_run(args) -> int:
         (outdir / "plan.json").write_text(plan.to_json())
         from .poc.sandbox import Sandbox as _SB
         coord = Coordinator(scope, audit, Validator(scope, _SB(cfg.sandbox_image, cfg.scopeguard_proxy, eng.engagement_id), audit), router, cfg.max_agent_concurrency)
-        run = coord.run(plan)
+        run = coord.run(plan, surface=surface, context=context)
         run.confirmed += _deterministic_findings(surface)
         confirmed, unconfirmed = run.confirmed, run.unconfirmed
     else:
@@ -165,7 +189,7 @@ def cmd_run(args) -> int:
             url = _host_url(host)
             print(f"masagent: [{host}] recon + test…", file=sys.stderr)
             try:
-                c, u, surface = _scan_host(cfg, url, scope, audit, router)
+                c, u, surface = _scan_host(cfg, url, scope, audit, router, context)
             except Exception as e:  # noqa: BLE001 — one host failing must not abort the estate run
                 print(f"masagent: [{host}] skipped: {e}", file=sys.stderr)
                 audit.log("note", reason=f"host skipped: {host}", detail={"error": str(e)})

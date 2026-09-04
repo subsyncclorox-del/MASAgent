@@ -20,6 +20,7 @@ from .scanners import ALL as SCANNERS, ScannerUnavailable
 from .scope_client import ScopeClient
 # ensure agents self-register
 from .agents import idor, reflection, llm_probe  # noqa: F401
+from .agents.autonomous import AutonomousAgent, Mission
 
 
 @dataclass
@@ -50,9 +51,24 @@ class Coordinator:
         self.router = router
         self.max_concurrency = max_concurrency
 
-    def run(self, plan: TestPlan) -> RunResult:
+    def run(self, plan: TestPlan, surface: dict | None = None, context: dict | None = None) -> RunResult:
         result = RunResult()
         candidates: list[tuple[str, Candidate]] = []
+
+        # Autonomous LLM-driven pass (XBOW-style): only when a model is available.
+        # The agent drives its own requests through the scope guard and reports
+        # candidates, which are validated below like any other.
+        if self.router and self.router.enabled:
+            try:
+                agent = AutonomousAgent(f"autonomous-{plan.target}", self.scope, self.audit, self.router)
+                mission = Mission(target=plan.target,
+                                  params=sorted({p for t in plan.tasks for p in t.params}),
+                                  surface=surface or {"target": plan.target},
+                                  context=context or {})
+                for cand in agent.run(mission):
+                    candidates.append(("autonomous", cand))
+            except Exception as e:  # noqa: BLE001 — autonomous pass is best-effort
+                self.audit.log("note", reason=f"autonomous pass error: {e}")
 
         # 1. Gather candidates from scanners and agents (bounded concurrency).
         with cf.ThreadPoolExecutor(max_workers=self.max_concurrency) as pool:
