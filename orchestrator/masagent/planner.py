@@ -54,10 +54,10 @@ def _seed_tasks(surface: dict) -> list[TestTask]:
     params = surface.get("parameters") or []
 
     # Forms -> injection + xss (highest priority: user-controlled sinks).
-    for page in spider.get("pages", []):
-        for form in page.get("forms", []):
+    for page in (spider.get("pages") or []):
+        for form in (page.get("forms") or []):
             action = form.get("action") or page.get("url")
-            inputs = form.get("inputs", [])
+            inputs = form.get("inputs") or []
             add(action, "sqli", "sqlmap", 1, f"form with inputs {inputs}", inputs)
             add(action, "xss", "dalfox", 1, f"reflected/stored candidate on {inputs}", inputs)
 

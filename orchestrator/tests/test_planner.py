@@ -29,3 +29,19 @@ def test_plan_covers_expected_classes():
 
 def test_plan_json_serializable():
     json.loads(build_plan(SURFACE, None).to_json())
+
+
+# Go serializes empty slices as JSON null; the planner must tolerate null fields.
+NULL_SURFACE = {
+    "target": "https://orwhat.xyz",
+    "parameters": None,
+    "fingerprint": {"tech": None, "security_headers_missing": ["Content-Security-Policy"]},
+    "spider": {"pages": [{"url": "https://orwhat.xyz", "forms": None,
+                          "scripts": None, "links": None, "params": None}], "scripts": None},
+    "deterministic_findings": None,
+}
+
+
+def test_plan_tolerates_null_fields():
+    plan = build_plan(NULL_SURFACE, None)   # must not raise on null slices
+    assert isinstance(plan.tasks, list)
